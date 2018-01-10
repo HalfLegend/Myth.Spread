@@ -1,11 +1,11 @@
 ﻿using System;
+using Myth.Spread.Arguments;
 
-namespace Myth.Spread
-{
-    class Program
-    {
-        static void Main(string[] args)
-        {
+namespace Myth.Spread {
+    public class Program {
+        public static void Main(string[] args) {
+            CommandLine.Initialize(args);
+
             
         }
     }
