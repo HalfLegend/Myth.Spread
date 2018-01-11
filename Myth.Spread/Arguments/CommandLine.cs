@@ -4,43 +4,57 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using Myth.Spread.Library;
 
 namespace Myth.Spread.Arguments {
     public static class CommandLine {
-        private static readonly IDictionary<string, Func<IEnumerable<string>, ArgumentBase>> ArgumentFactoryDictionary
-            = Assembly.GetExecutingAssembly().GetTypes()
-                .Where(type => type.IsSubclassOf(typeof(ArgumentBase)) && !type.IsAbstract).SelectMany(type => {
-                    IList<KeyValuePair<string, Func<IEnumerable<string>, ArgumentBase>>> result =
-                        new List<KeyValuePair<string, Func<IEnumerable<string>, ArgumentBase>>>(2);
-                    MethodInfo constructor = type.GetMethod(null, BindingFlags.CreateInstance | BindingFlags.Public,
-                        null,
-                        new[] {typeof(IEnumerable<string>)}, null);
+        private static readonly IDictionary<string, Func<IEnumerable<string>, ArgumentBase>> ArgumentFactoryDictionary;
 
-                    ParameterExpression parameterExpression = Expression.Parameter(typeof(IEnumerable<string>));
+        public static IList<ArgumentIdentifierAttribute> AllTypeInfoList { get; }
 
-                    MethodCallExpression callExpression = Expression.Call(null, constructor, parameterExpression);
-                    Func<IEnumerable<string>, ArgumentBase> func = Expression
-                        .Lambda<Func<IEnumerable<string>, ArgumentBase>>(callExpression, parameterExpression).Compile();
+        static CommandLine() {
+            var argumentTypes = (from type in Assembly.GetExecutingAssembly().GetTypes()
+                where type.IsSubclassOf(typeof(ArgumentBase)) && !type.IsAbstract
+                select new {
+                    Type = type,
+                    ArgumentIdentifier =
+                    type.GetCustomAttribute<ArgumentIdentifierAttribute>()
+                }).ToImmutableList();
 
-                    ArgumentIdentifierAttribute argumentIdentifier =
-                        type.GetCustomAttribute<ArgumentIdentifierAttribute>();
-                    string fullIdentifier = argumentIdentifier.FullIdentifier;
 
-                    // result.Add(new KeyValuePair<string, Func<IEnumerable<string>, ArgumentBase>>());
-                    if (fullIdentifier != null) {
-                        result.Add(new KeyValuePair<string, Func<IEnumerable<string>, ArgumentBase>>(
-                            '-' + argumentIdentifier.ShortIdentifier.ToLower(), func));
-                        result.Add(new KeyValuePair<string, Func<IEnumerable<string>, ArgumentBase>>(
-                            "--" + argumentIdentifier.FullIdentifier.ToLower(), func));
-                    }
-                    else {
-                        result.Add(new KeyValuePair<string, Func<IEnumerable<string>, ArgumentBase>>(null, func));
-                    }
+            ArgumentFactoryDictionary = argumentTypes.SelectMany(wrapper => {
+                Type type = wrapper.Type;
+                IList<KeyValuePair<string, Func<IEnumerable<string>, ArgumentBase>>> result =
+                    new List<KeyValuePair<string, Func<IEnumerable<string>, ArgumentBase>>>(2);
 
-                    return result;
-                }).ToImmutableDictionary();
+                ArgumentBase FactoryCallback(IEnumerable<string> args) =>
+                    (ArgumentBase) System.Activator.CreateInstance(type, args);
+
+                ArgumentIdentifierAttribute argumentIdentifier = wrapper.ArgumentIdentifier;
+                string fullIdentifier = argumentIdentifier.FullIdentifier;
+
+                // result.Add(new KeyValuePair<string, Func<IEnumerable<string>, ArgumentBase>>());
+                if (fullIdentifier != null) {
+                    result.Add(new KeyValuePair<string, Func<IEnumerable<string>, ArgumentBase>>(
+                        argumentIdentifier.ShortIdentifier.ToLower(), FactoryCallback));
+                    result.Add(new KeyValuePair<string, Func<IEnumerable<string>, ArgumentBase>>(
+                        argumentIdentifier.FullIdentifier.ToLower(), FactoryCallback));
+                }
+                else {
+                    result.Add(new KeyValuePair<string, Func<IEnumerable<string>, ArgumentBase>>(null,
+                        FactoryCallback));
+                }
+
+                return result;
+            }).ToImmutableDictionary();
+
+            AllTypeInfoList = (from wrapper in argumentTypes
+                orderby wrapper.ArgumentIdentifier.ShortIdentifier
+                select wrapper.ArgumentIdentifier).ToImmutableList();
+        }
+
 
         private static readonly IDictionary<Type, ArgumentBase> ArgumentDictionary =
             new Dictionary<Type, ArgumentBase>();
@@ -48,7 +62,10 @@ namespace Myth.Spread.Arguments {
         public static string SelfCommand { get; private set; }
 
         public static void Initialize(string[] args) {
-            SelfCommand = args[0];
+            SelfCommand = Environment.CommandLine;
+
+            IsVerbose = args.Any(arg => arg == "-v" || arg == "--verbose");
+            
             void HandleArgument(ICollection<string> collection, Func<IEnumerable<string>, ArgumentBase> func1) {
                 if (collection == null) return;
                 ArgumentBase argument = func1(collection);
@@ -57,19 +74,24 @@ namespace Myth.Spread.Arguments {
 
             Func<IEnumerable<string>, ArgumentBase> func = null;
             ICollection<string> a = null;
-            for (int i = 1; i < args.Length; i++) {
-                string arg = args[i];
+            foreach (string arg in args) {
                 // 下轮参数
                 if (arg.StartsWith("-")) {
                     HandleArgument(a, func);
                     a = new List<string>();
 
                     if (arg.StartsWith("--")) {
-                        func = ArgumentFactoryDictionary[arg];
+                        if (!ArgumentFactoryDictionary.TryGetValue(arg, out func)) {
+                            throw new ArgumentException($"未知参数 {arg}");
+                        }
                     }
                     else {
                         if (arg.Length >= 2) {
-                            func = ArgumentFactoryDictionary[arg.Substring(0, 2)];
+                            string tempArg = arg.Substring(0, 2);
+
+                            if (!ArgumentFactoryDictionary.TryGetValue(tempArg, out func)) {
+                                throw new ArgumentException($"未知参数 {tempArg}");
+                            }
                         }
                         else {
                             throw new ArgumentException("-后面要加参数，如-v");
@@ -84,17 +106,29 @@ namespace Myth.Spread.Arguments {
                 else {
                     if (a == null) {
                         a = new List<string>();
-                        func = ArgumentFactoryDictionary[null];
+                        func = ArgumentFactoryDictionary[string.Empty];
                     }
 
                     a.Add(arg);
                 }
             }
+
             HandleArgument(a, func);
         }
 
         public static T GetArgument<T>() where T : ArgumentBase {
-            return (T)ArgumentDictionary[typeof(T)];
+            ArgumentDictionary.TryGetValue(typeof(T), out ArgumentBase argumentBase);
+            return (T) argumentBase;
         }
+
+        public static bool ExistArgument<T>() where T : ArgumentBase {
+            return GetArgument<T>() != null;
+        }
+
+        public static bool AnyCommand() {
+            return ArgumentDictionary.Any();
+        }
+
+        public static bool IsVerbose { get; private set; }
     }
 }
