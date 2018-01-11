@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection.Metadata;
 using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
 using Myth.Spread.Arguments;
 using Renci.SshNet;
@@ -46,13 +47,13 @@ namespace Myth.Spread.Handlers {
                 return;
             }
 
-            Task[] tasks = new Task[remoteHostList.Count];
+            Task[] tasks = new Task[1];
 
 
             string userFolderPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             string sshPrivateKeyPath = Path.Combine(userFolderPath, ".ssh", "id_rsa");
 
-            for (int i = 0; i < remoteHostList.Count; i++) {
+            for (int i = 0; i < 1; i++) {
                 RemoteHost remoteHost = remoteHostList[i];
                 IList<AuthenticationMethod> authenticationMethodList = new List<AuthenticationMethod>();
                 if (File.Exists("id_rsa")) {
@@ -62,10 +63,10 @@ namespace Myth.Spread.Handlers {
 
                 if (File.Exists(sshPrivateKeyPath)) {
                     authenticationMethodList.Add(new PrivateKeyAuthenticationMethod(remoteHost.UserName,
-                        new PrivateKeyFile("sshPrivateKeyPath")));
+                        new PrivateKeyFile(sshPrivateKeyPath)));
                 }
 
-                authenticationMethodList.Add(new KeyboardInteractiveAuthenticationMethod(remoteHost.UserName));
+                //authenticationMethodList.Add(new KeyboardInteractiveAuthenticationMethod(remoteHost.UserName));
                 ConnectionInfo connectionInfo =
                     new ConnectionInfo(remoteHost.Host, remoteHost.UserName, authenticationMethodList.ToArray());
 
@@ -83,19 +84,22 @@ namespace Myth.Spread.Handlers {
             sshClient.Connect();
 
             return Task.Factory.StartNew(() => {
-                using (sshClient) {
-                    using (scpClient) {
-                        foreach (string s in pathList) {
-                            FileInfo fileInfo = new FileInfo(s);
+                foreach (string s in pathList) {
+                    FileInfo fileInfo = new FileInfo(s);
 
-                            string parent = Path.GetDirectoryName(s);
+                    string parent = Path.GetDirectoryName(s);
 
-                            sshClient.RunCommand($"mkdir -p {parent}");
-                            scpClient.Upload(fileInfo, s);
-                            Console.WriteLine($"传输完成：远程主机{connectionInfo.Host} 远程路径{s} 大小 {fileInfo.Length} 字节");
-                        }
-                    }
+                    sshClient.RunCommand($"mkdir -p {parent}");
+                    scpClient.Upload(fileInfo, s);
+                    Console.WriteLine($"传输完成：远程主机{connectionInfo.Host} 远程路径{s} 大小 {fileInfo.Length} 字节");
                 }
+
+                Task.Factory.StartNew(() => {
+                    sshClient.Dispose();
+                });
+                Task.Factory.StartNew(() => {
+                    scpClient.Dispose();
+                });
             });
         }
     }

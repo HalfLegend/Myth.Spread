@@ -14,9 +14,14 @@ namespace Myth.Spread.Handlers {
             HostString = hostString;
             Host = hostString;
 
-            string userName = Regex.Match(hostString, ".+(?<!@.+)").Value;
-            if (!string.IsNullOrWhiteSpace(userName)) {
-                _userName = userName;
+            string[] nodes = hostString.Split('@', 2);
+
+            if (nodes.Length == 2) {
+                _userName = nodes[0];
+                Host = nodes[1];
+            }
+            else {
+                Host = hostString;
             }
         }
     }
