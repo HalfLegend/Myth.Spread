@@ -24,5 +24,9 @@ namespace Myth.Spread.Handlers {
                 Host = hostString;
             }
         }
+
+        public override string ToString() {
+            return HostString;
+        }
     }
 }

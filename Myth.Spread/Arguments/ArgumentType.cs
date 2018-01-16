@@ -39,6 +39,16 @@ namespace Myth.Spread.Arguments {
     public class InstallArgument : ArgumentBase{
         public InstallArgument(IEnumerable<string> values) { }
     }
+    
+    [ArgumentIdentifier("把此工具安装到系统(暂未实现)", "remoteHosts")]
+    public class RemoteHostsArgument : ArgumentBase{
+        public RemoteHostsArgument(IEnumerable<string> values) { }
+    }
+    
+    [ArgumentIdentifier("把此工具安装到系统(暂未实现)", "delete")]
+    public class DeleteFolderArgument : ArgumentBase{
+        public DeleteFolderArgument(IEnumerable<string> values) { }
+    }
 
 //    [AttributeUsage(AttributeTargets.Class)]
 //    public class ArgumentTypeAttribute : Attribute {
