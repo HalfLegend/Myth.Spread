@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Myth.Spread", "Myth.Spread\Myth.Spread.csproj", "{49A8D1F5-235C-46DE-9005-EAC993166F2E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Myth.SpreadConsole", "Myth.SpreadConsole\Myth.SpreadConsole.csproj", "{AFD7A3E1-B677-44E9-98F0-2618811B09DE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -13,5 +15,9 @@ Global
 		{49A8D1F5-235C-46DE-9005-EAC993166F2E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{49A8D1F5-235C-46DE-9005-EAC993166F2E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{49A8D1F5-235C-46DE-9005-EAC993166F2E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AFD7A3E1-B677-44E9-98F0-2618811B09DE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AFD7A3E1-B677-44E9-98F0-2618811B09DE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AFD7A3E1-B677-44E9-98F0-2618811B09DE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AFD7A3E1-B677-44E9-98F0-2618811B09DE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -12,7 +13,7 @@ namespace Myth.Spread.Arguments {
     public static class CommandLine {
         private static readonly IDictionary<string, Func<IEnumerable<string>, ArgumentBase>> ArgumentFactoryDictionary;
 
-        public static IList<ArgumentIdentifierAttribute> AllTypeInfoList { get; }
+        public static IDictionary<Type, ArgumentIdentifierAttribute> ArgumentTypeInfoDictionary { get; }
 
         static CommandLine() {
             var argumentTypes = (from type in Assembly.GetExecutingAssembly().GetTypes()
@@ -20,9 +21,8 @@ namespace Myth.Spread.Arguments {
                 select new {
                     Type = type,
                     ArgumentIdentifier =
-                    type.GetCustomAttribute<ArgumentIdentifierAttribute>()
+                        type.GetCustomAttribute<ArgumentIdentifierAttribute>()
                 }).ToImmutableList();
-
 
             ArgumentFactoryDictionary = argumentTypes.SelectMany(wrapper => {
                 Type type = wrapper.Type;
@@ -49,10 +49,7 @@ namespace Myth.Spread.Arguments {
 
                 return result;
             }).ToImmutableDictionary();
-
-            AllTypeInfoList = (from wrapper in argumentTypes
-                orderby wrapper.ArgumentIdentifier.ShortIdentifier
-                select wrapper.ArgumentIdentifier).ToImmutableList();
+            ArgumentTypeInfoDictionary = argumentTypes.ToDictionary(w => w.Type, w => w.ArgumentIdentifier);
         }
 
 
@@ -65,7 +62,7 @@ namespace Myth.Spread.Arguments {
             SelfCommand = Environment.CommandLine;
 
             IsVerbose = args.Any(arg => arg == "-v" || arg == "--verbose");
-            
+
             void HandleArgument(ICollection<string> collection, Func<IEnumerable<string>, ArgumentBase> func1) {
                 if (collection == null) return;
                 ArgumentBase argument = func1(collection);
@@ -119,6 +116,12 @@ namespace Myth.Spread.Arguments {
         public static T GetArgument<T>() where T : ArgumentBase {
             ArgumentDictionary.TryGetValue(typeof(T), out ArgumentBase argumentBase);
             return (T) argumentBase;
+        }
+
+        public static bool GetArgument<T>(out T result) where T : ArgumentBase {
+            ArgumentDictionary.TryGetValue(typeof(T), out ArgumentBase argumentBase);
+            result = argumentBase as T;
+            return result != null;
         }
 
         public static bool ExistArgument<T>() where T : ArgumentBase {

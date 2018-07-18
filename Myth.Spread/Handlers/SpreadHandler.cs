@@ -9,56 +9,17 @@ using Myth.Spread.Arguments;
 using Renci.SshNet;
 
 namespace Myth.Spread.Handlers {
-    public static class SpreadHandler {
-        public static string GlobalConfigPath { get; } =
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                ".Myth", "Spread", "RemoteHosts.conf");
+    public class SpreadHandler : SpreadHanderBase{
 
         public static void Handle() {
-            IList<RemoteHost> remoteHostList = new List<RemoteHost>();
-            if (File.Exists(GlobalConfigPath)) {
-                using (StreamReader streamReader = new StreamReader(GlobalConfigPath)) {
-                    string line;
-                    while ((line = streamReader.ReadLine()) != null) {
-                        remoteHostList.Add(new RemoteHost(line));
-                    }
-                }
-            }
-
-            string hostName = Dns.GetHostName();
-            remoteHostList = remoteHostList.Where(remoteHost => {
-                if (string.Equals(remoteHost.Host, hostName, StringComparison.CurrentCultureIgnoreCase)) {
-                    if (CommandLine.IsVerbose) {
-                        Console.WriteLine($"跳过当前节点:{hostName}");
-                    }
-
-                    return false;
-                }
-
-                return true;
-            }).ToImmutableList();
-
-            if (CommandLine.IsVerbose) {
-                Console.WriteLine("要传输的节点列表：");
-                foreach (RemoteHost remoteHost in remoteHostList) {
-                    Console.WriteLine($"  {remoteHost}");
-                }
-            }
-
-            if (!remoteHostList.Any()) {
-                Console.WriteLine("没有远程节点，无需传输");
-                return;
-            }
-
             SourcePathsArgument sourcePathsArgument = CommandLine.GetArgument<SourcePathsArgument>();
 
-            string currentPath = Environment.CurrentDirectory;
             IList<string> pathList =
                 sourcePathsArgument.Where(path => {
                     if (File.Exists(path) || Directory.Exists(path)) return true;
                     Console.WriteLine($"文件(夹) {path} 不存在，已跳过");
                     return false;
-                }).Select(path => Path.IsPathRooted(path) ? path : Path.Combine(currentPath, path)).ToImmutableList();
+                }).Select(path => Path.IsPathRooted(path) ? path : Path.GetFullPath(path)).ToImmutableList();
 
             if (CommandLine.IsVerbose) {
                 Console.WriteLine("要传输的文件列表：");
@@ -72,30 +33,10 @@ namespace Myth.Spread.Handlers {
                 return;
             }
 
-            Task[] tasks = new Task[remoteHostList.Count];
+            Task[] tasks = new Task[RemoteHostList.Count];
 
-
-            string userFolderPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            string sshPrivateKeyPath = Path.Combine(userFolderPath, ".ssh", "id_rsa");
-
-            for (int i = 0; i < remoteHostList.Count; i++) {
-                RemoteHost remoteHost = remoteHostList[i];
-                IList<AuthenticationMethod> authenticationMethodList = new List<AuthenticationMethod>();
-                if (File.Exists("id_rsa")) {
-                    authenticationMethodList.Add(
-                        new PrivateKeyAuthenticationMethod(remoteHost.UserName, new PrivateKeyFile("id_rsa")));
-                }
-
-                if (File.Exists(sshPrivateKeyPath)) {
-                    authenticationMethodList.Add(new PrivateKeyAuthenticationMethod(remoteHost.UserName,
-                        new PrivateKeyFile(sshPrivateKeyPath)));
-                }
-
-                //authenticationMethodList.Add(new KeyboardInteractiveAuthenticationMethod(remoteHost.UserName));
-                ConnectionInfo connectionInfo =
-                    new ConnectionInfo(remoteHost.Host, remoteHost.UserName, authenticationMethodList.ToArray());
-
-                tasks[i] = HandleOneHostAsync(connectionInfo, pathList);
+            for (int i = 0; i < RemoteHostList.Count; i++) {
+                tasks[i] = HandleOneHostAsync(CreateConnectionInfo(RemoteHostList[i]), pathList);
             }
 
             Task.WaitAll(tasks);

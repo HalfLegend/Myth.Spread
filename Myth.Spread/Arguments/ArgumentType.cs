@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 
+// ReSharper disable ClassNeverInstantiated.Global
+
 namespace Myth.Spread.Arguments {
 //    public enum ArgumentType {
 //        SourcePaths,
@@ -25,29 +27,36 @@ namespace Myth.Spread.Arguments {
         public SourcePathsArgument(IEnumerable<string> values) : base(values) { }
     }
 
+    [ArgumentIdentifier("指定要在各节点执行的命令，不建议与传输文件同时使用\n" +
+                        "命令中可能有空格或-，请用使用引号"
+                        /*"注:当前节点也会执行，如果希望在各节点删除请用-d参数，不要使用此命令"*/, "command")]
+    public class CommandArgument : StringListArgument {
+        public CommandArgument(IEnumerable<string> values) : base(values) { }
+    }
+
+    [ArgumentIdentifier("传输文件价之前，先把远程主机已有的文件夹删除", "delete")]
+    public class DeleteFolderArgument : ArgumentBase {
+        public DeleteFolderArgument(IEnumerable<string> values) { }
+    }
+
     [ArgumentIdentifier("显示帮助信息", "help")]
-    public class HelpArgument : ArgumentBase{
+    public class HelpArgument : ArgumentBase {
         public HelpArgument(IEnumerable<string> values) { }
     }
-    
+
     [ArgumentIdentifier("输入执行详细过程及调试信息", "verbose")]
-    public class VerboseArgument : ArgumentBase{
+    public class VerboseArgument : ArgumentBase {
         public VerboseArgument(IEnumerable<string> values) { }
     }
-    
+
     [ArgumentIdentifier("把此工具安装到系统(暂未实现)", "install")]
-    public class InstallArgument : ArgumentBase{
+    public class InstallArgument : ArgumentBase {
         public InstallArgument(IEnumerable<string> values) { }
     }
-    
-    [ArgumentIdentifier("把此工具安装到系统(暂未实现)", "remoteHosts")]
-    public class RemoteHostsArgument : ArgumentBase{
-        public RemoteHostsArgument(IEnumerable<string> values) { }
-    }
-    
-    [ArgumentIdentifier("把此工具安装到系统(暂未实现)", "delete")]
-    public class DeleteFolderArgument : ArgumentBase{
-        public DeleteFolderArgument(IEnumerable<string> values) { }
+
+    [ArgumentIdentifier("配置远程节点列表", "remotes")]
+    public class RemoteHostsArgument : StringListArgument {
+        public RemoteHostsArgument(IEnumerable<string> values) : base(values) { }
     }
 
 //    [AttributeUsage(AttributeTargets.Class)]
@@ -68,6 +77,7 @@ namespace Myth.Spread.Arguments {
         }
 
         private string _shortIdentifier;
+
         public string ShortIdentifier {
             get {
                 if (_shortIdentifier != null) {
@@ -81,6 +91,7 @@ namespace Myth.Spread.Arguments {
         }
 
         private string _fullIdentifier;
+
         public string FullIdentifier {
             get {
                 if (_fullIdentifier != null) {
@@ -90,8 +101,9 @@ namespace Myth.Spread.Arguments {
                     return string.Empty;
                 }
             }
-            private set => _fullIdentifier= value;
+            private set => _fullIdentifier = value;
         }
+
         public string HelpInfo { get; }
 
         public static string ToShortIdentifier(string fullIdentifier) {
